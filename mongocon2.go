@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -21,8 +22,8 @@ var client *mongo.Client
 // 	var order model.BatchDB
 // 	coll := client.Database("local").Collection("BatchDB")
 // 	ctx, _ := context.WithTimeout(context.Background(), 50*time.Second)
-
-// 	err := coll.FindOne(ctx, model.BatchDB{OrderID: orderID}).Decode(&order)
+// 	projection := bson.M{"orderID": 1, "companyName": 1, "address1": 1, "address2": 1, "address3": 1, "city": 1, "state": 1, "country": 1, "zipCode": 1, "receipentPhone": 1, "carrierCode": 1, "classOfMail": 1, "ltlClass": 1, "userDefineFld": 1, "email": 1}
+// 	err := coll.FindOne(ctx, model.BatchDB{OrderID: orderID}, options.FindOne().SetProjection(projection)).Decode(&order)
 // 	if err != nil {
 // 		response.WriteHeader(http.StatusInternalServerError)
 // 		response.Write([]byte(`{ "message": "` + err.Error() + `" }`))
@@ -35,9 +36,7 @@ var client *mongo.Client
 // func getAllPendingOrder(response http.ResponseWriter, request *http.Request) {
 
 // 	filter := bson.M{"status": "P"}
-// 	//filter := bson.M{}
-// 	//projection := bson.M{"orderID": 1, "CompanyName": 1,"Address1"}
-// 	projection := bson.M{"status": 0}
+// 	projection := bson.M{"orderID": 1, "companyName": 1, "address1": 1, "address2": 1, "address3": 1, "city": 1, "state": 1, "country": 1, "zipCode": 1, "carrierCode": 1, "classOfMail": 1}
 // 	coll := client.Database("local").Collection("BatchDB")
 // 	ctx, _ := context.WithTimeout(context.Background(), 50*time.Second)
 
@@ -63,13 +62,24 @@ var client *mongo.Client
 
 // }
 
+func disconnect() error {
+	err := client.Disconnect(context.TODO())
+
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+	return nil
+}
 func main() {
 	fmt.Println("Starting the application...")
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 	clientOptions := options.Client().ApplyURI("mongodb://localhost:27017")
 	client, _ = mongo.Connect(ctx, clientOptions)
+	defer disconnect()
+
 	router := mux.NewRouter()
 	//router.HandleFunc("/getAllPendingOrder", getAllPendingOrder).Methods("GET")
-	router.HandleFunc("/order/{orderID}", getOrder).Methods("GET")
+	router.HandleFunc("/order/{orderID}", getOrder(client)).Methods("GET")
 	http.ListenAndServe(":8080", router)
 }
